@@ -1,0 +1,12 @@
+[package]
+name = "svelte-path-matcher"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+members = [".", "macros"]
+
+[dependencies]
+macros = { path = "./macros" }
+pad-adapter = "0.1.1"
+urlencoding = "2.1.3"
