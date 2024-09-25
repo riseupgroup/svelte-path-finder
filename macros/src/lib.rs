@@ -9,13 +9,14 @@ use {
 #[proc_macro]
 pub fn build_from_filesystem(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let dir = Path::new(&parse_macro_input!(input as LitStr).value()).join("routes");
-    process_dir(&dir, None)
+    process_dir(&dir, None, false)
         .map(|x| x.0)
         .unwrap_or_else(|| {
             quote! {
-                svelte_path_matcher::SveltePathMatcher {
+                svelte_path_finder::SveltePathFinder {
                     children: &[],
                     terminating: false,
+                    requires_login: false,
                 }
             }
         })
@@ -53,7 +54,11 @@ impl SegmentType {
     }
 }
 
-fn process_dir(path: &PathBuf, segment: Option<&str>) -> Option<(TokenStream, bool)> {
+fn process_dir(
+    path: &PathBuf,
+    segment: Option<&str>,
+    requires_login: bool,
+) -> Option<(TokenStream, bool)> {
     lazy_static::lazy_static! {
         static ref TERMINATING_REGEX: Regex = Regex::new(r"\+page(|@.*)\.svelte").unwrap();
     }
@@ -64,7 +69,14 @@ fn process_dir(path: &PathBuf, segment: Option<&str>) -> Option<(TokenStream, bo
         let file = file.unwrap().path();
         let file_name = file.file_name().unwrap().to_str().unwrap();
         if file.is_dir() {
-            if let Some((new_items, terminating_parent)) = process_dir(&file, Some(file_name)) {
+            let requires_login = match file_name {
+                "(login)" => true,
+                "(no_login)" => false,
+                _ => requires_login,
+            };
+            if let Some((new_items, terminating_parent)) =
+                process_dir(&file, Some(file_name), requires_login)
+            {
                 items.extend(Some(new_items));
                 if terminating_parent {
                     terminating = true;
@@ -84,9 +96,10 @@ fn process_dir(path: &PathBuf, segment: Option<&str>) -> Option<(TokenStream, bo
         None => {
             return Some((
                 quote! {
-                    svelte_path_matcher::SveltePathMatcher {
+                    svelte_path_finder::SveltePathFinder {
                         children: &[#items],
                         terminating: #terminating,
+                        requires_login: #requires_login,
                     }
                 },
                 false,
@@ -100,7 +113,7 @@ fn process_dir(path: &PathBuf, segment: Option<&str>) -> Option<(TokenStream, bo
         segment_type => {
             let segment = match segment_type {
                 SegmentType::Ignore => unreachable!(),
-                SegmentType::Static => quote! { static_str(#segment) },
+                SegmentType::Static => quote! { Static(#segment) },
                 SegmentType::Wildcard => quote! { Wildcard },
                 SegmentType::OptionalWildcard => quote! { OptionalWildcard },
                 SegmentType::RepeatedWildcard => quote! { RepeatedWildcard },
@@ -129,9 +142,9 @@ fn process_dir(path: &PathBuf, segment: Option<&str>) -> Option<(TokenStream, bo
                                             )
                                         };
                                         if !static_part.is_empty() {
-                                            items.extend(Some(quote! { svelte_path_matcher::ComplexWildcard::static_str(#static_part), }));
+                                            items.extend(Some(quote! { svelte_path_finder::ComplexWildcard::Static(#static_part), }));
                                         }
-                                        items.extend(Some(quote! { svelte_path_matcher::ComplexWildcard::Wildcard, }));
+                                        items.extend(Some(quote! { svelte_path_finder::ComplexWildcard::Wildcard, }));
                                         segment_start = i + 1;
                                         wildcard = None;
                                     }
@@ -143,11 +156,13 @@ fn process_dir(path: &PathBuf, segment: Option<&str>) -> Option<(TokenStream, bo
                     let static_part =
                         unsafe { std::str::from_utf8_unchecked(&segment[segment_start..]) };
                     if !static_part.is_empty() {
-                        items.extend(Some(quote! { svelte_path_matcher::ComplexWildcard::static_str(#static_part), }));
+                        items.extend(Some(
+                            quote! { svelte_path_finder::ComplexWildcard::Static(#static_part), },
+                        ));
                     }
                     quote! {
                         ComplexWildcard({
-                            const WILDCARD: &[svelte_path_matcher::ComplexWildcard] = &[#items];
+                            const WILDCARD: &[svelte_path_finder::ComplexWildcard] = &[#items];
                             WILDCARD
                         })
                     }
@@ -155,10 +170,11 @@ fn process_dir(path: &PathBuf, segment: Option<&str>) -> Option<(TokenStream, bo
             };
             Some((
                 quote! {
-                    svelte_path_matcher::Item {
-                        segment: svelte_path_matcher::Segment::#segment,
-                        terminating: #terminating,
+                    svelte_path_finder::Item {
+                        segment: svelte_path_finder::Segment::#segment,
                         children: &[#items],
+                        terminating: #terminating,
+                        requires_login: #requires_login,
                     },
                 },
                 false,

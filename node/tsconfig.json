@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "allowJs": false,
+        "checkJs": false,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "sourceMap": true,
+        "strict": true,
+        "module": "ESNext",
+        "lib": [
+            "ES5",
+            "ESNext",
+        ],
+        "declaration": true,
+        "outDir": "./dist"
+    }
+}

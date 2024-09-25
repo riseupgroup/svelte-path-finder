@@ -1,5 +1,5 @@
 [package]
-name = "svelte-path-matcher"
+name = "svelte-path-finder"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,4 +9,5 @@ members = [".", "macros"]
 [dependencies]
 macros = { path = "./macros" }
 pad-adapter = "0.1.1"
+serde = { version = "1.0.209", features = ["derive"] }
 urlencoding = "2.1.3"
