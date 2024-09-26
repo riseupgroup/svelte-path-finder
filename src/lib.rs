@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Display},
 };
 
-pub use macros::build_from_filesystem;
+pub use macros::{build_from_filesystem, list_files};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

@@ -23,6 +23,23 @@ pub fn build_from_filesystem(input: proc_macro::TokenStream) -> proc_macro::Toke
         .into()
 }
 
+#[proc_macro]
+pub fn list_files(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let path = parse_macro_input!(input as LitStr).value();
+    let mut files = TokenStream::new();
+    for file in std::fs::read_dir(path).unwrap() {
+        let file = file.unwrap().path();
+        let file_name = file.file_name().unwrap().to_str().unwrap();
+        if file.is_file() {
+            files.extend(Some(quote! { #file_name, }));
+        }
+    }
+    quote! {
+        &[#files]
+    }
+    .into()
+}
+
 enum SegmentType {
     Ignore,
     OptionalWildcard,
